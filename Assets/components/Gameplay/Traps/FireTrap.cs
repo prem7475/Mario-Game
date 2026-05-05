@@ -36,7 +36,8 @@ namespace MarioGame.Components.Gameplay.Traps
         {
             _on = on;
             if (_col != null) _col.enabled = on;
-            if (_sr != null) _sr.color = on ? new Color(1f, 0.45f, 0.15f, 0.25f) : new Color(1f, 0.45f, 0.15f, 0.05f);
+            if (_sr != null)
+                _sr.color = on ? new Color(1f, 0.45f, 0.15f, 0.35f) : new Color(1f, 0.45f, 0.15f, 0.07f);
         }
 
         private void OnTriggerEnter2D(Collider2D other)
@@ -60,4 +61,3 @@ namespace MarioGame.Components.Gameplay.Traps
         }
     }
 }
-

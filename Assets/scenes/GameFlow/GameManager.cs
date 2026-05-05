@@ -15,6 +15,8 @@ namespace MarioGame.Scenes.GameFlow
         private LevelProgression _progression;
         private LevelRuntime _runtime;
         private bool _paused;
+        private MarioGame.Components.Monetization.IAP.IapManager _iap;
+        private MarioGame.Components.Monetization.Shop.ShopController _shop;
 
         private void Awake()
         {
@@ -31,22 +33,37 @@ namespace MarioGame.Scenes.GameFlow
             _progression = new LevelProgression(_saveService);
 
             EnsureAudio();
+            EnsureAds();
             EnsureCoinManager();
             EnsureUi();
             EnsureRuntime();
 
-            AudioService.SetSoundEnabled(_progression.SoundEnabled);
+            AudioService.SetMusicEnabled(_progression.MusicEnabled);
+            AudioService.SetSfxEnabled(_progression.SfxEnabled);
+
+            EnsureIap();
+            EnsureShop();
             _runtime.LoadLevel(_progression.UnlockedLevel);
         }
 
         private void EnsureAudio()
         {
-            if (FindObjectOfType<AudioService>() != null)
+            if (Object.FindAnyObjectByType<AudioService>() != null)
                 return;
 
             var go = new GameObject("AudioService");
             DontDestroyOnLoad(go);
             go.AddComponent<AudioService>();
+        }
+
+        private void EnsureAds()
+        {
+            if (Object.FindAnyObjectByType<MarioGame.Components.Monetization.Ads.AdsManager>() != null)
+                return;
+
+            var go = new GameObject("AdsManager");
+            DontDestroyOnLoad(go);
+            go.AddComponent<MarioGame.Components.Monetization.Ads.AdsManager>();
         }
 
         private void EnsureCoinManager()
@@ -74,7 +91,7 @@ namespace MarioGame.Scenes.GameFlow
             if (_runtime != null)
                 return;
 
-            _runtime = FindObjectOfType<LevelRuntime>();
+            _runtime = Object.FindAnyObjectByType<LevelRuntime>();
             if (_runtime == null)
             {
                 var go = new GameObject("LevelRuntime");
@@ -85,12 +102,62 @@ namespace MarioGame.Scenes.GameFlow
             _runtime.Construct(_progression);
         }
 
+        private void EnsureIap()
+        {
+            if (_iap != null)
+                return;
+
+            _iap = Object.FindAnyObjectByType<MarioGame.Components.Monetization.IAP.IapManager>();
+            if (_iap == null)
+            {
+                var go = new GameObject("IapManager");
+                DontDestroyOnLoad(go);
+                _iap = go.AddComponent<MarioGame.Components.Monetization.IAP.IapManager>();
+            }
+
+            _iap.Construct(_saveService, _progression);
+        }
+
+        private void EnsureShop()
+        {
+            if (_shop != null)
+                return;
+
+            _shop = Object.FindAnyObjectByType<MarioGame.Components.Monetization.Shop.ShopController>();
+            if (_shop == null)
+            {
+                var go = new GameObject("Shop");
+                DontDestroyOnLoad(go);
+                _shop = go.AddComponent<MarioGame.Components.Monetization.Shop.ShopController>();
+            }
+
+            _shop.Construct(_saveService);
+        }
+
+        public void ToggleShop()
+        {
+            if (_shop == null)
+                return;
+
+            if (_shop.IsOpen)
+            {
+                _shop.Toggle(false);
+                SetPaused(false);
+                return;
+            }
+
+            _shop.Toggle(true);
+            SetPaused(true);
+            UIManager.Instance?.ShowPause(false);
+        }
+
         public void LoadLevel(int levelNumber)
         {
             _paused = false;
             Time.timeScale = 1f;
             UIManager.Instance?.ShowPause(false);
             UIManager.Instance?.ShowGameOver(false);
+            UIManager.Instance?.ShowLevelComplete(false);
             _runtime?.LoadLevel(levelNumber);
         }
         public void RestartLevel()
@@ -99,6 +166,7 @@ namespace MarioGame.Scenes.GameFlow
             Time.timeScale = 1f;
             UIManager.Instance?.ShowPause(false);
             UIManager.Instance?.ShowGameOver(false);
+            UIManager.Instance?.ShowLevelComplete(false);
             _runtime?.RestartLevel();
         }
 
@@ -120,5 +188,23 @@ namespace MarioGame.Scenes.GameFlow
         {
             _runtime?.ToggleLevelSelect();
         }
+
+        public void ToggleMusic()
+        {
+            if (_progression == null) return;
+            _progression.MusicEnabled = !_progression.MusicEnabled;
+            AudioService.SetMusicEnabled(_progression.MusicEnabled);
+        }
+
+        public void ToggleSfx()
+        {
+            if (_progression == null) return;
+            _progression.SfxEnabled = !_progression.SfxEnabled;
+            AudioService.SetSfxEnabled(_progression.SfxEnabled);
+        }
+
+        public bool MusicEnabled => _progression != null && _progression.MusicEnabled;
+        public bool SfxEnabled => _progression != null && _progression.SfxEnabled;
     }
 }
+

@@ -34,6 +34,8 @@ namespace MarioGame.Levels
         private Text _hudText;
         private bool _paused;
         private GameObject _levelSelectPanel;
+        private MarioGame.Utils.Pooling.ObjectPool _coinPool;
+        private MarioGame.Utils.Pooling.ObjectPool _walkerPool;
 
         public int LevelNumber => _levelNumber;
         public float ElapsedTime => _time;
@@ -72,12 +74,14 @@ namespace MarioGame.Levels
             _levelNumber = Mathf.Clamp(levelNumber, 1, 100);
             _time = 0f;
             CoinManager.Instance?.ResetForLevel();
+            EnsurePools();
 
             ClearLevelObjects();
 
             var theme = WorldTheme.ForLevel(_levelNumber);
             if (UnityEngine.Camera.main != null)
                 UnityEngine.Camera.main.backgroundColor = WorldTheme.SkyColor(theme);
+            MarioGame.Components.Audio.AudioService.SetMusicForWorld(theme);
 
             _cameraFollow = EnsureCameraFollow();
             EnsureHud();
@@ -105,7 +109,7 @@ namespace MarioGame.Levels
             _player.position = _checkpointPosition;
             var rb = _player.GetComponent<Rigidbody2D>();
             if (rb != null)
-                rb.velocity = Vector2.zero;
+                rb.linearVelocity = Vector2.zero;
         }
 
         public void GameOver()
@@ -122,7 +126,11 @@ namespace MarioGame.Levels
             var coins = CoinManager.Instance != null ? CoinManager.Instance.Coins : 0;
             _progression?.UpdateRecord(_levelNumber, stars, coins, _time);
             _progression?.UnlockNext(_levelNumber);
-            LoadLevel(Mathf.Min(_levelNumber + 1, 100));
+            Time.timeScale = 0f;
+            _paused = true;
+            var totalCoins = CoinManager.Instance != null ? CoinManager.Instance.TotalCoins : 0;
+            MarioGame.Components.Monetization.Ads.AdsManager.Instance?.NotifyLevelCompleted();
+            MarioGame.Components.UI.UIManager.Instance?.ShowLevelComplete(true, stars, coins, totalCoins, _time);
         }
 
         public void RestartLevel()
@@ -187,7 +195,7 @@ namespace MarioGame.Levels
             rect.anchoredPosition = new Vector2(18, -16);
             rect.sizeDelta = new Vector2(800, 160);
             _hudText = txtGo.AddComponent<Text>();
-            _hudText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            _hudText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             _hudText.fontSize = 26;
             _hudText.color = Color.white;
             _hudText.alignment = TextAnchor.UpperLeft;
@@ -206,12 +214,16 @@ namespace MarioGame.Levels
             if (_progression == null)
                 return;
 
-            _progression.SoundEnabled = !_progression.SoundEnabled;
-            AudioService.SetSoundEnabled(_progression.SoundEnabled);
+            // Legacy button: toggles both music + sfx.
+            var next = !(_progression.MusicEnabled && _progression.SfxEnabled);
+            _progression.MusicEnabled = next;
+            _progression.SfxEnabled = next;
+            AudioService.SetMusicEnabled(next);
+            AudioService.SetSfxEnabled(next);
             UpdateHud(force: true);
         }
 
-        private void ToggleLevelSelect()
+        public void ToggleLevelSelect()
         {
             if (_levelSelectPanel == null)
                 return;
@@ -270,7 +282,7 @@ namespace MarioGame.Levels
             var t = txtGo.AddComponent<Text>();
             t.text = label;
             t.alignment = TextAnchor.MiddleCenter;
-            t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             t.color = Color.white;
         }
 
@@ -289,6 +301,7 @@ namespace MarioGame.Levels
             bg.color = new Color(0f, 0f, 0f, 0.6f);
 
             CreateHudButton(panel.transform, "Close", new Vector2(-18, -18), new Vector2(140, 56), anchorTopRight: true, onClick: ToggleLevelSelect);
+            CreateHudButton(panel.transform, "Unlock", new Vector2(-170, -18), new Vector2(140, 56), anchorTopRight: true, onClick: UnlockNextViaRewardedAd);
 
             var titleGo = new GameObject("Title");
             titleGo.transform.SetParent(panel.transform, false);
@@ -299,7 +312,7 @@ namespace MarioGame.Levels
             titleRect.anchoredPosition = new Vector2(0, -18);
             titleRect.sizeDelta = new Vector2(0, 60);
             var title = titleGo.AddComponent<Text>();
-            title.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            title.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             title.fontSize = 34;
             title.alignment = TextAnchor.MiddleCenter;
             title.color = Color.white;
@@ -355,6 +368,24 @@ namespace MarioGame.Levels
             return panel;
         }
 
+        private void UnlockNextViaRewardedAd()
+        {
+            if (_progression == null)
+                return;
+
+            var currentUnlocked = _progression.UnlockedLevel;
+            if (currentUnlocked >= 100)
+                return;
+
+            MarioGame.Components.Monetization.Ads.AdsManager.Instance?.ShowRewarded(
+                placement: "unlock_next_level",
+                onReward: () =>
+                {
+                    _progression.UnlockNext(currentUnlocked);
+                },
+                onClosed: () => RefreshLevelSelectPanel());
+        }
+
         private void CreateLevelButton(Transform parent, int level)
         {
             var go = new GameObject($"Level_{level}");
@@ -378,7 +409,7 @@ namespace MarioGame.Levels
             rect.offsetMax = new Vector2(-8, -6);
 
             var t = labelGo.AddComponent<Text>();
-            t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             t.alignment = TextAnchor.MiddleCenter;
             t.color = Color.white;
 
@@ -448,10 +479,66 @@ namespace MarioGame.Levels
         {
             var root = GameObject.Find("LevelRoot");
             if (root != null)
+            {
+                // Return pooled objects before destroying the level root.
+                var pooled = root.GetComponentsInChildren<MarioGame.Utils.Pooling.PooledObject>(true);
+                for (var i = 0; i < pooled.Length; i++)
+                    if (pooled[i] != null) pooled[i].Despawn();
+
                 Destroy(root);
+            }
 
             if (_player != null)
                 Destroy(_player.gameObject);
+        }
+
+        private void EnsurePools()
+        {
+            // Pools persist across levels to avoid instantiation spikes.
+            _coinPool ??= new MarioGame.Utils.Pooling.ObjectPool("Coin", CreatePooledCoin, parent: transform, prewarm: 80);
+            _walkerPool ??= new MarioGame.Utils.Pooling.ObjectPool("WalkerEnemy", CreatePooledWalker, parent: transform, prewarm: 24);
+        }
+
+        private GameObject CreatePooledCoin()
+        {
+            var c = new GameObject("Coin");
+            c.AddComponent<MarioGame.Utils.Pooling.PooledObject>().Pool = _coinPool;
+            var sr = c.AddComponent<SpriteRenderer>();
+            sr.sprite = RuntimeSprites.Circle;
+            sr.color = new Color(1f, 0.85f, 0.15f);
+            sr.sortingOrder = 5;
+            c.AddComponent<MarioGame.Components.FX.GlowPulse>();
+
+            var col = c.AddComponent<CircleCollider2D>();
+            col.isTrigger = true;
+            col.radius = 0.28f;
+
+            c.AddComponent<CoinPickup>();
+            return c;
+        }
+
+        private GameObject CreatePooledWalker()
+        {
+            var e = new GameObject("WalkerEnemy");
+            e.AddComponent<MarioGame.Utils.Pooling.PooledObject>().Pool = _walkerPool;
+
+            var sr = e.AddComponent<SpriteRenderer>();
+            sr.sprite = RuntimeSprites.Square;
+            sr.color = new Color(0.25f, 0.15f, 0.1f);
+            sr.sortingOrder = 9;
+
+            var rb = e.AddComponent<Rigidbody2D>();
+            rb.gravityScale = 3.4f;
+            rb.freezeRotation = true;
+            rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            e.AddComponent<MarioGame.Utils.Pooling.PooledRigidbody2DReset>();
+
+            var col = e.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(0.8f, 0.8f);
+
+            e.AddComponent<EnemyAI>();
+            return e;
         }
 
         private void SpawnPlayerAt(Vector3 position)
@@ -466,6 +553,11 @@ namespace MarioGame.Levels
             sr.sortingOrder = 10;
             player.AddComponent<PlayerPowerState>();
 
+            var animator = player.AddComponent<Animator>();
+            var controller = Resources.Load<RuntimeAnimatorController>("Player");
+            if (controller != null)
+                animator.runtimeAnimatorController = controller;
+
             var rb = player.AddComponent<Rigidbody2D>();
             rb.freezeRotation = true;
             rb.interpolation = RigidbodyInterpolation2D.Interpolate;
@@ -478,6 +570,7 @@ namespace MarioGame.Levels
 
             _playerHealth = player.AddComponent<Health>();
             _playerPower = player.GetComponent<PlayerPowerState>();
+            player.AddComponent<PlayerDamageReceiver>();
 
             player.AddComponent<PlayerController>();
 
@@ -510,7 +603,7 @@ namespace MarioGame.Levels
                 bounds.minY = authored.minY;
                 bounds.maxY = authored.maxY;
 
-                var loader = new LevelLoader(root.transform, authored.ResolvedTheme());
+                var loader = new LevelLoader(root.transform, authored.ResolvedTheme(), _coinPool, _walkerPool);
                 loader.BuildFromDefinition(authored);
 
                 if (authored.hasBoss)
@@ -643,20 +736,8 @@ namespace MarioGame.Levels
             {
                 var x = (float)(rng.NextDouble() * (length - 4) + 2);
                 var y = (float)(rng.NextDouble() * 6 + 0.5);
-
-                var c = new GameObject($"Coin_{i}");
-                c.transform.SetParent(parent, false);
-                c.transform.position = new Vector3(x, y, 0f);
-                var sr = c.AddComponent<SpriteRenderer>();
-                sr.sprite = RuntimeSprites.Circle;
-                sr.color = new Color(1f, 0.85f, 0.15f);
-                sr.sortingOrder = 5;
-
-                var col = c.AddComponent<CircleCollider2D>();
-                col.isTrigger = true;
-                col.radius = 0.28f;
-
-                c.AddComponent<CoinPickup>();
+                var c = _coinPool != null ? _coinPool.Get(new Vector3(x, y, 0f)) : new GameObject($"Coin_{i}");
+                c.transform.SetParent(parent, true);
                 CoinManager.Instance?.RegisterCoinSpawned(1);
             }
         }
@@ -672,8 +753,11 @@ namespace MarioGame.Levels
 
                 if (!isFlying)
                 {
-                    var e = CreateEnemyBase(parent, $"WalkerEnemy_{i}", x, -0.2f, new Color(0.25f, 0.15f, 0.1f), addTouchDamage: false);
-                    var patrol = e.AddComponent<EnemyAI>();
+                    var e = _walkerPool != null
+                        ? _walkerPool.Get(new Vector3(x, -0.2f, 0f))
+                        : CreateEnemyBase(parent, $"WalkerEnemy_{i}", x, -0.2f, new Color(0.25f, 0.15f, 0.1f), addTouchDamage: false);
+                    e.transform.SetParent(parent, true);
+                    var patrol = e.GetComponent<EnemyAI>() ?? e.AddComponent<EnemyAI>();
                     patrol.ConfigurePatrol(left: x - 1.6f, right: x + 1.6f, patrolSpeed: 1.6f + (levelNumber * 0.01f));
                 }
                 else
@@ -804,3 +888,4 @@ namespace MarioGame.Levels
         }
     }
 }
+

@@ -10,26 +10,38 @@ namespace MarioGame.Components.FX
 
         public void Build(WorldThemeId theme)
         {
-            _camera = Camera.main != null ? Camera.main.transform : null;
+            _camera = UnityEngine.Camera.main != null ? UnityEngine.Camera.main.transform : null;
             if (_camera == null)
                 return;
 
             Clear();
 
-            CreateLayer("Far", new Color(1f, 1f, 1f, 0.15f), parallax: 0.15f, y: 2.0f, height: 5.2f);
-            CreateLayer("Mid", new Color(1f, 1f, 1f, 0.22f), parallax: 0.28f, y: 1.2f, height: 4.0f);
+            var db = Resources.Load<VisualThemeDatabase>("Visuals/VisualThemeDatabase");
+            var world = db != null ? db.Get(theme) : null;
+            var parallax = world != null ? world.parallax : null;
 
-            var tint = theme switch
+            if (parallax == null)
             {
-                WorldThemeId.Jungle => new Color(0.15f, 0.55f, 0.2f, 0.28f),
-                WorldThemeId.Desert => new Color(0.75f, 0.55f, 0.2f, 0.28f),
-                WorldThemeId.Ice => new Color(0.75f, 0.85f, 1f, 0.25f),
-                WorldThemeId.Lava => new Color(0.85f, 0.25f, 0.2f, 0.25f),
-                WorldThemeId.Underwater => new Color(0.2f, 0.45f, 0.85f, 0.25f),
-                _ => new Color(1f, 1f, 1f, 0.2f)
-            };
+                CreateLayer("Far", sprite: null, new Color(1f, 1f, 1f, 0.15f), parallax: 0.15f, y: 2.0f, height: 5.2f);
+                CreateLayer("Mid", sprite: null, new Color(1f, 1f, 1f, 0.22f), parallax: 0.28f, y: 1.2f, height: 4.0f);
 
-            CreateLayer("Near", tint, parallax: 0.42f, y: 0.0f, height: 3.1f);
+                var tint = theme switch
+                {
+                    WorldThemeId.Jungle => new Color(0.15f, 0.55f, 0.2f, 0.28f),
+                    WorldThemeId.Desert => new Color(0.75f, 0.55f, 0.2f, 0.28f),
+                    WorldThemeId.Ice => new Color(0.75f, 0.85f, 1f, 0.25f),
+                    WorldThemeId.Lava => new Color(0.85f, 0.25f, 0.2f, 0.25f),
+                    WorldThemeId.Underwater => new Color(0.2f, 0.45f, 0.85f, 0.25f),
+                    _ => new Color(1f, 1f, 1f, 0.2f)
+                };
+
+                CreateLayer("Near", sprite: null, tint, parallax: 0.42f, y: 0.0f, height: 3.1f);
+                return;
+            }
+
+            CreateLayer("Far", parallax.farSprite, parallax.farTint, parallax.farParallax, parallax.farY, parallax.farHeight, parallax.tileWidth);
+            CreateLayer("Mid", parallax.midSprite, parallax.midTint, parallax.midParallax, parallax.midY, parallax.midHeight, parallax.tileWidth);
+            CreateLayer("Near", parallax.nearSprite, parallax.nearTint, parallax.nearParallax, parallax.nearY, parallax.nearHeight, parallax.tileWidth);
         }
 
         private void Clear()
@@ -38,7 +50,7 @@ namespace MarioGame.Components.FX
                 Destroy(transform.GetChild(i).gameObject);
         }
 
-        private void CreateLayer(string name, Color color, float parallax, float y, float height)
+        private void CreateLayer(string name, Sprite sprite, Color tint, float parallax, float y, float height, float tileWidth = 20f)
         {
             var layer = new GameObject(name);
             layer.transform.SetParent(transform, false);
@@ -49,12 +61,12 @@ namespace MarioGame.Components.FX
             {
                 var part = new GameObject($"Tile_{i}");
                 part.transform.SetParent(layer.transform, false);
-                part.transform.position = new Vector3(i * 20f, 0f, 10f);
+                part.transform.position = new Vector3(i * tileWidth, 0f, 10f);
                 var sr = part.AddComponent<SpriteRenderer>();
-                sr.sprite = RuntimeSprites.Square;
+                sr.sprite = sprite != null ? sprite : RuntimeSprites.Square;
                 sr.drawMode = SpriteDrawMode.Sliced;
-                sr.size = new Vector2(20f, height);
-                sr.color = color;
+                sr.size = new Vector2(tileWidth, height);
+                sr.color = tint;
                 sr.sortingOrder = -100;
             }
         }
@@ -85,4 +97,3 @@ namespace MarioGame.Components.FX
         }
     }
 }
-

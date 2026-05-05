@@ -64,7 +64,7 @@ namespace MarioGame.Components.Gameplay.Enemies
             var rb = proj.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0f;
             rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-            rb.velocity = new Vector2(-7.5f, Mathf.Sin(Time.time * 2f) * 1.1f);
+            rb.linearVelocity = new Vector2(-7.5f, Mathf.Sin(Time.time * 2f) * 1.1f);
 
             var col = proj.AddComponent<CircleCollider2D>();
             col.isTrigger = true;

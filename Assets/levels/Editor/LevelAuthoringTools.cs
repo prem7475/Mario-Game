@@ -39,7 +39,7 @@ namespace MarioGame.Levels.Editor
                 else
                 {
                     EditorUtility.CopySerialized(def, existing);
-                    DestroyImmediate(def);
+                    UnityEngine.Object.DestroyImmediate(def);
                 }
 
                 db.levels[existing.levelNumber - 1] = existing;

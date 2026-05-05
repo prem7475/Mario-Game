@@ -23,7 +23,7 @@ namespace MarioGame.Components.Gameplay.Enemies
             if (rb != null)
             {
                 rb.gravityScale = 0f;
-                rb.velocity = Vector2.zero;
+                rb.linearVelocity = Vector2.zero;
             }
         }
 
@@ -36,4 +36,3 @@ namespace MarioGame.Components.Gameplay.Enemies
         }
     }
 }
-

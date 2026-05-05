@@ -2,6 +2,7 @@ using MarioGame.Components.Audio;
 using MarioGame.Components.FX;
 using MarioGame.Components.Player;
 using UnityEngine;
+using MarioGame.Utils.Pooling;
 
 namespace MarioGame.Components.Gameplay.Pickups
 {
@@ -17,7 +18,9 @@ namespace MarioGame.Components.Gameplay.Pickups
             CoinManager.Instance?.AddCoins(value);
             AudioService.PlaySfx(SfxId.Coin);
             ParticleService.Burst(transform.position, new Color(1f, 0.85f, 0.15f), count: 12, size: 0.11f);
-            Destroy(gameObject);
+            var pooled = GetComponent<PooledObject>();
+            if (pooled != null) pooled.Despawn();
+            else Destroy(gameObject);
         }
     }
 }

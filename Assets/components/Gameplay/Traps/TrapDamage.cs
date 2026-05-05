@@ -1,4 +1,5 @@
 using MarioGame.Components.Player;
+using MarioGame.Components.Gameplay;
 using UnityEngine;
 
 namespace MarioGame.Components.Gameplay.Traps
@@ -16,7 +17,11 @@ namespace MarioGame.Components.Gameplay.Traps
             if (health == null)
                 return;
 
-            health.Damage(damage);
+            var receiver = other.GetComponent<PlayerDamageReceiver>();
+            if (receiver != null)
+                receiver.ApplyDamage(damage, transform.position);
+            else
+                health.Damage(damage);
             if (health.Lives <= 0)
             {
                 MarioGame.Levels.LevelRuntime.Current?.GameOver();

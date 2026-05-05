@@ -64,8 +64,8 @@ namespace MarioGame.Components.Player
                 _coyoteTimer -= Time.deltaTime;
             }
 
-            if (!input.JumpHeld && _rb.velocity.y > 0.1f)
-                _rb.velocity = new Vector2(_rb.velocity.x, _rb.velocity.y * jumpCutMultiplier);
+            if (!input.JumpHeld && _rb.linearVelocity.y > 0.1f)
+                _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, _rb.linearVelocity.y * jumpCutMultiplier);
         }
 
         private void FixedUpdate()
@@ -76,10 +76,10 @@ namespace MarioGame.Components.Player
 
             var targetX = input.Horizontal * moveSpeed;
             var accel = _grounded ? acceleration : airAcceleration;
-            var newX = Mathf.MoveTowards(_rb.velocity.x, targetX, accel * Time.fixedDeltaTime);
+            var newX = Mathf.MoveTowards(_rb.linearVelocity.x, targetX, accel * Time.fixedDeltaTime);
 
-            var newY = Mathf.Max(_rb.velocity.y, -maxFallSpeed);
-            _rb.velocity = new Vector2(newX, newY);
+            var newY = Mathf.Max(_rb.linearVelocity.y, -maxFallSpeed);
+            _rb.linearVelocity = new Vector2(newX, newY);
 
             TryConsumeJump(input);
         }
@@ -93,7 +93,7 @@ namespace MarioGame.Components.Player
             {
                 _jumpBufferTimer = 0f;
                 _coyoteTimer = 0f;
-                _rb.velocity = new Vector2(_rb.velocity.x, jumpVelocity);
+                _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, jumpVelocity);
                 AudioService.PlaySfx(SfxId.Jump);
                 return;
             }
@@ -102,7 +102,7 @@ namespace MarioGame.Components.Player
             {
                 _jumpBufferTimer = 0f;
                 _usedDoubleJump = true;
-                _rb.velocity = new Vector2(_rb.velocity.x, doubleJumpVelocity);
+                _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, doubleJumpVelocity);
                 AudioService.PlaySfx(SfxId.Jump);
             }
         }
@@ -115,4 +115,3 @@ namespace MarioGame.Components.Player
         }
     }
 }
-

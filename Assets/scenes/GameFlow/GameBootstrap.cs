@@ -2,6 +2,7 @@ using MarioGame.Components.Camera;
 using MarioGame.Components.Input;
 using MarioGame.Components.Player;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace MarioGame.Scenes.GameFlow
 {
@@ -23,6 +24,7 @@ namespace MarioGame.Scenes.GameFlow
 
             var camGo = new GameObject("Main Camera");
             camGo.tag = "MainCamera";
+            camGo.transform.position = new Vector3(0f, 0f, -10f);
             var cam = camGo.AddComponent<UnityEngine.Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 6.5f;
@@ -33,21 +35,37 @@ namespace MarioGame.Scenes.GameFlow
 
         private void EnsureUIAndInput()
         {
-            if (FindObjectOfType<VirtualControlsHUD>() != null)
+            if (Object.FindAnyObjectByType<VirtualControlsHUD>() == null)
+            {
+                var hud = new GameObject("VirtualControlsHUD");
+                DontDestroyOnLoad(hud);
+                hud.AddComponent<VirtualControlsHUD>();
+            }
+
+            if (Object.FindAnyObjectByType<InputService>() == null)
+            {
+                var input = new GameObject("InputService");
+                DontDestroyOnLoad(input);
+                input.AddComponent<InputService>();
+            }
+
+            EnsureEventSystem();
+        }
+
+        private void EnsureEventSystem()
+        {
+            if (Object.FindAnyObjectByType<EventSystem>() != null)
                 return;
 
-            var hud = new GameObject("VirtualControlsHUD");
-            DontDestroyOnLoad(hud);
-            hud.AddComponent<VirtualControlsHUD>();
-
-            var input = new GameObject("InputService");
-            DontDestroyOnLoad(input);
-            input.AddComponent<InputService>();
+            var eventSystem = new GameObject("EventSystem");
+            DontDestroyOnLoad(eventSystem);
+            eventSystem.AddComponent<EventSystem>();
+            eventSystem.AddComponent<StandaloneInputModule>();
         }
 
         private void EnsureGameManager()
         {
-            if (FindObjectOfType<GameManager>() != null)
+            if (Object.FindAnyObjectByType<GameManager>() != null)
                 return;
 
             var go = new GameObject("GameManager");
@@ -56,3 +74,4 @@ namespace MarioGame.Scenes.GameFlow
         }
     }
 }
+

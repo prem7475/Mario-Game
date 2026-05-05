@@ -59,10 +59,26 @@ namespace MarioGame.Levels
 
         public bool SoundEnabled
         {
-            get => _save.Data.soundEnabled;
+            get => _save.Data.musicEnabled && _save.Data.sfxEnabled;
+            set { /* legacy shim; keep for older call sites */ }
+        }
+
+        public bool MusicEnabled
+        {
+            get => _save.Data.musicEnabled;
             set
             {
-                _save.Data.soundEnabled = value;
+                _save.Data.musicEnabled = value;
+                _save.Save();
+            }
+        }
+
+        public bool SfxEnabled
+        {
+            get => _save.Data.sfxEnabled;
+            set
+            {
+                _save.Data.sfxEnabled = value;
                 _save.Save();
             }
         }

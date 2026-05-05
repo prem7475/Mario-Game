@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using MarioGame.Utils.Runtime;
 
 namespace MarioGame.Components.Input
 {
@@ -12,7 +13,10 @@ namespace MarioGame.Components.Input
         {
             _canvas = gameObject.AddComponent<Canvas>();
             _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            gameObject.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            var scaler = gameObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
+            scaler.matchWidthOrHeight = 1f; // prefer height for mobile portrait/landscape variance
             gameObject.AddComponent<GraphicRaycaster>();
 
             CreateButton("Left", new Vector2(110, 110), new Vector2(140, 140),
@@ -58,7 +62,10 @@ namespace MarioGame.Components.Input
             rect.anchoredPosition = anchoredPosition;
 
             var image = go.AddComponent<Image>();
-            image.color = new Color(1f, 1f, 1f, 0.18f);
+            image.sprite = RuntimeUiSprites.RoundedRect;
+            image.type = Image.Type.Sliced;
+            image.color = new Color(1f, 1f, 1f, 0.16f);
+            image.raycastTarget = true;
 
             var btnText = new GameObject("Text");
             btnText.transform.SetParent(go.transform, false);
@@ -71,22 +78,43 @@ namespace MarioGame.Components.Input
             var t = btnText.AddComponent<Text>();
             t.text = label;
             t.alignment = TextAnchor.MiddleCenter;
-            t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             t.color = new Color(1f, 1f, 1f, 0.8f);
 
             var press = go.AddComponent<PointerPressHandler>();
             press.OnDown = down;
             press.OnUp = up;
+
+            var shadow = btnText.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.4f);
+            shadow.effectDistance = new Vector2(1.5f, -1.5f);
         }
 
         private sealed class PointerPressHandler : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
         {
             public System.Action OnDown;
             public System.Action OnUp;
+            private bool _down;
 
-            public void OnPointerDown(PointerEventData eventData) => OnDown?.Invoke();
-            public void OnPointerUp(PointerEventData eventData) => OnUp?.Invoke();
-            public void OnPointerExit(PointerEventData eventData) => OnUp?.Invoke();
+            public void OnPointerDown(PointerEventData eventData)
+            {
+                _down = true;
+                OnDown?.Invoke();
+            }
+
+            public void OnPointerUp(PointerEventData eventData)
+            {
+                if (!_down) return;
+                _down = false;
+                OnUp?.Invoke();
+            }
+
+            public void OnPointerExit(PointerEventData eventData)
+            {
+                if (!_down) return;
+                _down = false;
+                OnUp?.Invoke();
+            }
         }
     }
 }

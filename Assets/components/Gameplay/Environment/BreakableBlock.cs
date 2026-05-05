@@ -25,7 +25,7 @@ namespace MarioGame.Components.Gameplay.Environment
                 if (c.normal.y < -0.6f)
                 {
                     var rb = player.GetComponent<Rigidbody2D>();
-                    if (rb != null && rb.velocity.y >= requiredUpwardSpeed)
+                    if (rb != null && rb.linearVelocity.y >= requiredUpwardSpeed)
                     {
                         Destroy(gameObject);
                         return;
@@ -35,4 +35,3 @@ namespace MarioGame.Components.Gameplay.Environment
         }
     }
 }
-

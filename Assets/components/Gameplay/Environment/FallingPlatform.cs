@@ -46,7 +46,7 @@ namespace MarioGame.Components.Gameplay.Environment
         private void Respawn()
         {
             _rb.bodyType = RigidbodyType2D.Kinematic;
-            _rb.velocity = Vector2.zero;
+            _rb.linearVelocity = Vector2.zero;
             transform.position = _startPos;
             _triggered = false;
             _timer = 0f;
@@ -67,4 +67,3 @@ namespace MarioGame.Components.Gameplay.Environment
         }
     }
 }
-

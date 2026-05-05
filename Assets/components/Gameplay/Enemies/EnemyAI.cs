@@ -43,9 +43,9 @@ namespace MarioGame.Components.Gameplay.Enemies
             if (x <= leftX) _dir = 1;
             if (x >= rightX) _dir = -1;
 
-            var v = _rb.velocity;
+            var v = _rb.linearVelocity;
             v.x = _dir * speed;
-            _rb.velocity = v;
+            _rb.linearVelocity = v;
 
             var s = transform.localScale;
             s.x = Mathf.Abs(s.x) * (_dir >= 0 ? 1 : -1);
@@ -64,26 +64,30 @@ namespace MarioGame.Components.Gameplay.Enemies
                 if (c.normal.y > 0.55f)
                 {
                     var prb = player.GetComponent<Rigidbody2D>();
-                    if (prb != null && prb.velocity.y <= 0.5f)
+                    if (prb != null && prb.linearVelocity.y <= 0.5f)
                     {
-                        prb.velocity = new Vector2(prb.velocity.x, stompBounceVelocity);
+                        prb.linearVelocity = new Vector2(prb.linearVelocity.x, stompBounceVelocity);
                         ParticleService.Burst(transform.position, new Color(0.75f, 0.35f, 0.15f), count: 10, size: 0.12f);
-                        Destroy(gameObject);
+                        var cam = UnityEngine.Camera.main != null ? UnityEngine.Camera.main.GetComponent<MarioGame.Components.Camera.FollowCamera2D>() : null;
+                        cam?.Shake(0.16f);
+                        MarioGame.Components.Audio.AudioService.PlaySfx(MarioGame.Components.Audio.SfxId.EnemyHit);
+                        var flash = GetComponent<HitFlash>() ?? gameObject.AddComponent<HitFlash>();
+                        flash.Flash();
+                        Destroy(gameObject, 0.04f);
                         return;
                     }
                 }
             }
 
-            var health = player.GetComponent<Health>();
-            if (health == null)
-                return;
-
-            health.Damage(touchDamage);
-            if (health.Lives <= 0)
-                LevelRuntime.Current?.GameOver();
-            else
-                LevelRuntime.Current?.RespawnAtCheckpoint();
+            var receiver = player.GetComponent<PlayerDamageReceiver>();
+            if (receiver != null)
+            {
+                receiver.ApplyDamage(touchDamage, transform.position);
+                if (player.GetComponent<Health>().Lives <= 0)
+                    LevelRuntime.Current?.GameOver();
+                else
+                    LevelRuntime.Current?.RespawnAtCheckpoint();
+            }
         }
     }
 }
-

@@ -7,6 +7,7 @@ using MarioGame.Components.Player;
 using MarioGame.Levels.Data;
 using MarioGame.Levels.Tiles;
 using MarioGame.Utils.Runtime;
+using MarioGame.Utils.Pooling;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -17,12 +18,16 @@ namespace MarioGame.Levels
         private readonly Transform _root;
         private readonly WorldThemeId _theme;
         private readonly RuntimeTilePalette _palette;
+        private readonly ObjectPool _coinPool;
+        private readonly ObjectPool _walkerPool;
 
-        public LevelLoader(Transform levelRoot, WorldThemeId theme)
+        public LevelLoader(Transform levelRoot, WorldThemeId theme, ObjectPool coinPool = null, ObjectPool walkerPool = null)
         {
             _root = levelRoot;
             _theme = theme;
             _palette = new RuntimeTilePalette(theme);
+            _coinPool = coinPool;
+            _walkerPool = walkerPool;
         }
 
         public void BuildFromDefinition(LevelDefinition def)
@@ -148,8 +153,9 @@ namespace MarioGame.Levels
                 var e = def.spawns.enemies[i];
                 if (e.type == EnemyType.Walker)
                 {
-                    var go = SpawnEnemyBase("WalkerEnemy", e.position, new Color(0.25f, 0.15f, 0.1f));
-                    var ai = go.AddComponent<EnemyAI>();
+                    var go = _walkerPool != null ? _walkerPool.Get(e.position) : SpawnEnemyBase("WalkerEnemy", e.position, new Color(0.25f, 0.15f, 0.1f));
+                    go.transform.SetParent(_root, true);
+                    var ai = go.GetComponent<EnemyAI>() ?? go.AddComponent<EnemyAI>();
                     ai.ConfigurePatrol(e.patrolLeftX, e.patrolRightX, e.speed);
                 }
                 else
@@ -225,19 +231,38 @@ namespace MarioGame.Levels
                     _ => Vector2.Lerp(p.start, p.end, t)
                 };
 
-                var c = new GameObject("Coin");
-                c.transform.SetParent(_root, false);
-                c.transform.position = pos;
-                var sr = c.AddComponent<SpriteRenderer>();
-                sr.sprite = RuntimeSprites.Circle;
-                sr.color = new Color(1f, 0.85f, 0.15f);
-                sr.sortingOrder = 5;
-                var col = c.AddComponent<CircleCollider2D>();
-                col.isTrigger = true;
-                col.radius = 0.28f;
-                c.AddComponent<CoinPickup>();
+                GameObject c;
+                if (_coinPool != null)
+                {
+                    c = _coinPool.Get(pos);
+                    c.transform.SetParent(_root, true);
+                }
+                else
+                {
+                    c = CreateCoinStandalone(pos);
+                }
                 CoinManager.Instance?.RegisterCoinSpawned(1);
             }
+        }
+
+        private GameObject CreateCoinStandalone(Vector2 pos)
+        {
+            var c = new GameObject("Coin");
+            c.transform.SetParent(_root, false);
+            c.transform.position = pos;
+
+            var sr = c.AddComponent<SpriteRenderer>();
+            sr.sprite = RuntimeSprites.Circle;
+            sr.color = new Color(1f, 0.85f, 0.15f);
+            sr.sortingOrder = 5;
+            c.AddComponent<MarioGame.Components.FX.GlowPulse>();
+
+            var col = c.AddComponent<CircleCollider2D>();
+            col.isTrigger = true;
+            col.radius = 0.28f;
+
+            c.AddComponent<CoinPickup>();
+            return c;
         }
 
         private static Vector2 ArcPoint(Vector2 a, Vector2 b, float height, float t)
@@ -288,4 +313,3 @@ namespace MarioGame.Levels
         }
     }
 }
-

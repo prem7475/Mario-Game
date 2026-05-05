@@ -29,10 +29,9 @@ namespace MarioGame.Components.Gameplay.Enemies
             if (x <= _leftX) _dir = 1;
             if (x >= _rightX) _dir = -1;
 
-            var v = _rb.velocity;
+            var v = _rb.linearVelocity;
             v.x = _dir * _speed;
-            _rb.velocity = v;
+            _rb.linearVelocity = v;
         }
     }
 }
-

@@ -8,13 +8,13 @@ namespace MarioGame.Utils.Runtime
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Init()
         {
-            if (Object.FindObjectOfType<BootMarker>() != null)
+            if (Object.FindAnyObjectByType<BootMarker>() != null)
                 return;
 
             var marker = new GameObject("Boot");
             marker.AddComponent<BootMarker>();
 
-            if (Object.FindObjectOfType<EventSystem>() == null)
+            if (Object.FindAnyObjectByType<EventSystem>() == null)
             {
                 var es = new GameObject("EventSystem");
                 es.AddComponent<EventSystem>();
@@ -27,3 +27,4 @@ namespace MarioGame.Utils.Runtime
         private sealed class BootMarker : MonoBehaviour { }
     }
 }
+

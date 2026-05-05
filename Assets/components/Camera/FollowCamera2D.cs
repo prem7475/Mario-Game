@@ -12,6 +12,7 @@ namespace MarioGame.Components.Camera
 
         private Vector3 _velocity;
         private MarioGame.Levels.LevelBounds _bounds;
+        private CameraShake _shake;
 
         public void SetTarget(Transform t) => target = t;
 
@@ -24,7 +25,7 @@ namespace MarioGame.Components.Camera
             var smoothed = Vector3.SmoothDamp(transform.position, desired, ref _velocity, smoothTime);
 
             if (_bounds == null)
-                _bounds = Object.FindObjectOfType<MarioGame.Levels.LevelBounds>();
+                _bounds = Object.FindAnyObjectByType<MarioGame.Levels.LevelBounds>();
 
             if (_bounds != null)
             {
@@ -36,6 +37,17 @@ namespace MarioGame.Components.Camera
             }
 
             transform.position = smoothed;
+
+            if (_shake == null)
+                _shake = GetComponent<CameraShake>();
+        }
+
+        public void Shake(float amount)
+        {
+            if (_shake == null)
+                _shake = GetComponent<CameraShake>() ?? gameObject.AddComponent<CameraShake>();
+            _shake.AddTrauma(amount);
         }
     }
 }
+

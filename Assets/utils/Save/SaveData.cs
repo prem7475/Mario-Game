@@ -7,7 +7,13 @@ namespace MarioGame.Utils.Save
     public sealed class SaveData
     {
         public int unlockedLevel = 1; // 1..100
-        public bool soundEnabled = true;
+        public bool musicEnabled = true;
+        public bool sfxEnabled = true;
+
+        // Shop / economy
+        public int softCoins = 0;
+        public int inventoryExtraLives = 0;
+        public bool purchasedUnlockAllLevels = false;
 
         // Unity's JsonUtility doesn't support Dictionary, so we store an array.
         [FormerlySerializedAs("levelRecords")]
